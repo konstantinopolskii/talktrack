@@ -2,10 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TalkTrack</title>
-  <link rel="stylesheet" href="./vendor/kk/vars.css">
-  <link rel="stylesheet" href="./vendor/kk/style.css">
-  <link rel="stylesheet" href="./popup.css">
+  <title>TalkTrack popup preview</title>
+  <link rel="stylesheet" href="../vendor/kk/vars.css">
+  <link rel="stylesheet" href="../vendor/kk/style.css">
+  <link rel="stylesheet" href="../popup.css">
+  <script>
+    // Stub chrome.* so popup.js can run outside the extension context.
+    window.chrome = {
+      runtime: {
+        sendMessage: () => Promise.resolve({
+          recording: true, startedAt: Date.now() - 192000,
+          last: {
+            id: "20260426-114530",
+            folder: "talktrack/session-20260426-114530",
+            durationMs: 192000,
+            events: 47
+          }
+        })
+      }
+    };
+  </script>
 </head>
 <body class="talktrack-popup">
   <div class="app" data-view="inspector">
@@ -44,6 +60,6 @@
 
   </aside>
   </div>
-  <script src="./popup.js"></script>
+  <script src="../popup.js"></script>
 </body>
 </html>

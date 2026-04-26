@@ -11,12 +11,31 @@ html, body {
   font-weight: var(--fw-regular);
 }
 
+/* The kit sets display:flex on .card__heading and .button. The UA stylesheet
+   for [hidden] is just `display: none`, which loses to those declarations.
+   Re-assert it so our mode-toggle hidden flag actually hides things. */
+[hidden] { display: none !important; }
+
+/* The kit's three-column shell uses display:grid + height:100% + overflow:hidden.
+   A Chrome popup auto-sizes to its content, so we flatten the shell back to
+   block flow and let the inspector own its own height. The .app[data-view="inspector"]
+   wrapper still satisfies the kit's narrow-viewport guard that re-shows the
+   inspector below 768px. */
 .talktrack-popup {
   width: var(--inspector-w);
 }
 
+.talktrack-popup .app {
+  display: block;
+  height: auto;
+  overflow: visible;
+  grid-template-columns: none;
+}
+
 .talktrack-popup .inspector {
-  padding-block-end: var(--space-6);
+  height: auto;
+  overflow: visible;
+  padding: var(--space-3) var(--col-pad-x) var(--space-6);
 }
 
 #recorder[data-mode="recording"] {
