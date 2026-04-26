@@ -128,11 +128,16 @@
     const isText = e.target && /^(INPUT|TEXTAREA)$/.test(e.target.nodeName);
     if (!isCombo && !["Enter", "Escape", "Tab"].includes(e.key) && !isText) return;
     const d = describe(e.target) || {};
+    const mods = [];
+    if (e.ctrlKey && e.key !== "Control") mods.push("Ctrl");
+    if (e.metaKey && e.key !== "Meta") mods.push("Meta");
+    if (e.altKey && e.key !== "Alt") mods.push("Alt");
+    if (e.shiftKey && e.key !== "Shift") mods.push("Shift");
     send({
       kind: "key",
       t: now(),
       url: location.href,
-      key: [e.ctrlKey ? "Ctrl" : "", e.metaKey ? "Meta" : "", e.altKey ? "Alt" : "", e.shiftKey ? "Shift" : "", e.key].filter(Boolean).join("+"),
+      key: mods.concat([e.key]).join("+"),
       ...d
     });
   }

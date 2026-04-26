@@ -17,16 +17,28 @@ const OFFSCREEN_URL = "offscreen.html";
 const SESSION_KEY = "talktrack:session";
 const LAST_KEY = "talktrack:last";
 
-let session = null; // { id, startedAt, events: [], audioReady: false }
+let session = null;
+let offscreenReadyResolver = null;
 
 async function ensureOffscreen() {
   const existing = await chrome.offscreen.hasDocument?.();
   if (existing) return;
+  // chrome.offscreen.createDocument resolves when the document loads, but
+  // the offscreen script's onMessage listener may not be attached yet.
+  // Wait for the offscreen doc to ping back with offscreen:ready before
+  // any subsequent message is sent — otherwise the start command lands
+  // in the void and audio capture silently never begins.
+  const ready = new Promise((resolve) => {
+    offscreenReadyResolver = resolve;
+    setTimeout(resolve, 3000); // safety: don't hang forever
+  });
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["USER_MEDIA"],
     justification: "Record microphone audio for the active TalkTrack session."
   });
+  await ready;
+  offscreenReadyResolver = null;
 }
 
 async function closeOffscreen() {
@@ -63,15 +75,35 @@ async function startSession() {
     id,
     startedAt: Date.now(),
     events: [],
-    audioReady: false
+    audio: { ok: null, error: null, mime: null }
   };
   await chrome.storage.session.set({ [SESSION_KEY]: { id, startedAt: session.startedAt } });
 
   await ensureOffscreen();
-  await chrome.runtime.sendMessage({ target: "offscreen", type: "start", sessionId: id }).catch(() => {});
+
+  const audioRes = await chrome.runtime.sendMessage({
+    target: "offscreen", type: "start", sessionId: id
+  }).catch((e) => ({ ok: false, reason: "send-failed", error: String(e?.message || e) }));
+
+  if (audioRes && audioRes.ok) {
+    session.audio = { ok: true, error: null, mime: audioRes.mime || null };
+  } else {
+    session.audio = {
+      ok: false,
+      error: audioRes?.reason || "no-response",
+      detail: audioRes?.error || null,
+      mime: null
+    };
+  }
+
   await broadcastToTabs({ target: "content", type: "start", sessionId: id, startedAt: session.startedAt });
 
-  return { ok: true, id, startedAt: session.startedAt };
+  return {
+    ok: true,
+    id,
+    startedAt: session.startedAt,
+    audio: session.audio
+  };
 }
 
 async function stopSession() {
@@ -80,7 +112,8 @@ async function stopSession() {
   const events = session.events.slice();
   await broadcastToTabs({ target: "content", type: "stop" });
 
-  const audio = await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" }).catch(() => null);
+  const audio = await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" })
+    .catch((e) => ({ ok: false, reason: "send-failed", error: String(e?.message || e) }));
 
   const meta = {
     id: session.id,
@@ -88,13 +121,20 @@ async function stopSession() {
     stoppedAt: Date.now(),
     durationMs: Date.now() - session.startedAt,
     events: events.length,
-    userAgent: navigator.userAgent
+    userAgent: navigator.userAgent,
+    audio: {
+      ok: !!(audio && audio.ok && audio.dataUrl),
+      mime: audio?.mime || session.audio?.mime || null,
+      bytes: audio?.bytes || 0,
+      error: !audio || !audio.ok ? (audio?.reason || session.audio?.error || "no-response") : null,
+      detail: audio?.error || session.audio?.detail || null
+    }
   };
 
   const folder = `talktrack/session-${session.id}`;
   const writes = [];
 
-  if (audio?.dataUrl) {
+  if (audio && audio.ok && audio.dataUrl) {
     writes.push(downloadFile(`${folder}/audio.${audio.ext || "webm"}`, audio.dataUrl));
   }
 
@@ -104,6 +144,7 @@ async function stopSession() {
 
   const ids = await Promise.all(writes);
 
+  const lastAudio = meta.audio;
   session = null;
   await chrome.storage.session.remove(SESSION_KEY);
   await closeOffscreen();
@@ -113,6 +154,7 @@ async function stopSession() {
     folder,
     durationMs: meta.durationMs,
     events: meta.events,
+    audio: lastAudio,
     downloadId: ids.find(Boolean) || null
   };
   await chrome.storage.local.set({ [LAST_KEY]: last });
@@ -121,7 +163,6 @@ async function stopSession() {
 }
 
 function toDataUrl(mime, text) {
-  // base64 encode utf-8 string
   const utf8 = new TextEncoder().encode(text);
   let bin = "";
   for (let i = 0; i < utf8.length; i++) bin += String.fromCharCode(utf8[i]);
@@ -155,6 +196,11 @@ function renderLog(meta, events) {
   lines.push(`stopped: ${stoppedAt}`);
   lines.push(`duration: ${fmtClock(meta.durationMs)}`);
   lines.push(`events: ${meta.events}`);
+  if (meta.audio?.ok) {
+    lines.push(`audio: ${meta.audio.mime || "?"}, ${Math.round((meta.audio.bytes || 0) / 1024)} KB`);
+  } else {
+    lines.push(`audio: missing (${meta.audio?.error || "unknown"})`);
+  }
   lines.push("");
   for (const ev of events) {
     const t = fmtClock(ev.t);
@@ -195,14 +241,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
           recording: !!session,
           startedAt: session?.startedAt || null,
+          audio: session?.audio || null,
           last
         });
       })();
       return true;
+    case "popup:open-mic-setup":
+      chrome.tabs.create({ url: chrome.runtime.getURL("setup.html") });
+      sendResponse({ ok: true });
+      return false;
+    case "setup:granted":
+      sendResponse({ ok: true });
+      return false;
+    case "offscreen:ready":
+      if (offscreenReadyResolver) offscreenReadyResolver();
+      offscreenReadyResolver = null;
+      return false;
     case "content:event":
-      if (session) {
-        session.events.push(message.event);
-      }
+      if (session) session.events.push(message.event);
       sendResponse({ ok: !!session });
       return false;
     case "content:hello":
@@ -217,8 +273,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// On install, clear any stale session state so we don't think we're recording
-// after a service worker restart with no offscreen doc.
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.session.remove(SESSION_KEY).catch(() => {});
 });

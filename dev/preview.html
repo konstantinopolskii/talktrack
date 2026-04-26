@@ -8,16 +8,29 @@
   <link rel="stylesheet" href="../popup.css">
   <script>
     // Stub chrome.* so popup.js can run outside the extension context.
+    // Toggle the constants below to preview different states.
+    const PREVIEW_RECORDING = true;
+    const PREVIEW_AUDIO_OK = false;
+
+    const audioState = PREVIEW_AUDIO_OK
+      ? { ok: true, error: null, mime: "audio/webm;codecs=opus" }
+      : { ok: false, error: "mic-denied", mime: null };
+
+    const lastSession = {
+      id: "20260426-114530",
+      folder: "talktrack/session-20260426-114530",
+      durationMs: 192000,
+      events: 47,
+      audio: audioState
+    };
+
     window.chrome = {
       runtime: {
         sendMessage: () => Promise.resolve({
-          recording: true, startedAt: Date.now() - 192000,
-          last: {
-            id: "20260426-114530",
-            folder: "talktrack/session-20260426-114530",
-            durationMs: 192000,
-            events: 47
-          }
+          recording: PREVIEW_RECORDING,
+          startedAt: PREVIEW_RECORDING ? Date.now() - 192000 : null,
+          audio: PREVIEW_RECORDING ? audioState : null,
+          last: lastSession
         })
       }
     };
@@ -41,11 +54,19 @@
 
         <div class="card__heading" data-mode-show="recording" hidden>
           <h3 class="t-display" id="elapsed">00:00</h3>
-          <p class="t-caption">Recording. Click anywhere on the page to mark a moment. Speak freely.</p>
+          <p class="t-caption" id="recording-note">Recording. Click anywhere on the page to mark a moment. Speak freely.</p>
         </div>
 
         <button class="button button--primary t-subtitle" id="start" data-mode-show="idle" type="button">Start recording</button>
         <button class="button button--primary t-subtitle" id="stop" data-mode-show="recording" type="button" hidden>Stop</button>
+      </article>
+
+      <article class="card" id="mic-warning" hidden>
+        <div class="card__heading">
+          <h3 class="t-title">Microphone not granted</h3>
+          <p class="t-caption" id="mic-warning-detail">Audio capture failed. Events still logged. Open the setup tab to allow the mic.</p>
+        </div>
+        <button class="button t-subtitle" id="open-mic-setup" type="button">Allow microphone</button>
       </article>
 
       <article class="card" id="session" hidden>

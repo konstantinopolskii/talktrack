@@ -78,3 +78,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   return false;
 });
+
+// Tell the background we're ready to receive start/stop. createDocument
+// resolves before this listener is wired, so without this ping the first
+// start command can race past us and audio never begins.
+chrome.runtime.sendMessage({ target: "background", type: "offscreen:ready" }).catch(() => {});

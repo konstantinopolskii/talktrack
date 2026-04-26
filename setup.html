@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TalkTrack — microphone setup</title>
+  <link rel="stylesheet" href="./vendor/kk/vars.css">
+  <link rel="stylesheet" href="./vendor/kk/style.css">
+  <link rel="stylesheet" href="./popup.css">
+</head>
+<body class="talktrack-popup">
+  <div class="app" data-view="inspector">
+  <aside class="inspector" aria-label="TalkTrack microphone setup">
+    <section class="inspector__group">
+      <header class="card card--heading">
+        <h2 class="t-display">Allow microphone</h2>
+        <p class="t-caption t-muted">One-time grant. After this, recording starts straight from the popup.</p>
+      </header>
+
+      <article class="card" id="setup">
+        <div class="card__heading" data-state="idle">
+          <h3 class="t-title">Why this page</h3>
+          <p class="t-caption">Chrome only shows the microphone prompt for full pages, not extension popups. Click below to trigger it. Pick allow.</p>
+        </div>
+
+        <div class="card__heading" data-state="ok" hidden>
+          <h3 class="t-title">Granted</h3>
+          <p class="t-caption">Microphone is set. You can close this tab and start recording from the popup.</p>
+        </div>
+
+        <div class="card__heading" data-state="denied" hidden>
+          <h3 class="t-title">Blocked</h3>
+          <p class="t-caption">Chrome refused the request. Open Site settings for this page from the address bar lock icon and switch microphone to Allow.</p>
+        </div>
+
+        <button class="button button--primary t-subtitle" id="grant" type="button" data-state="idle">Request microphone</button>
+        <button class="button t-subtitle" id="close" type="button" data-state="ok" hidden>Close tab</button>
+      </article>
+    </section>
+  </aside>
+  </div>
+  <script src="./setup.js"></script>
+</body>
+</html>
