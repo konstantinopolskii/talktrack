@@ -115,7 +115,6 @@ async function stopSession() {
   const audio = await chrome.runtime.sendMessage({ target: "offscreen", type: "stop" })
     .catch((e) => ({ ok: false, reason: "send-failed", error: String(e?.message || e) }));
 
-  const segments = Array.isArray(audio?.segments) ? audio.segments : [];
   const audioExt = audio?.ext || "webm";
 
   const meta = {
@@ -132,10 +131,6 @@ async function stopSession() {
       bytes: audio?.bytes || 0,
       error: !audio || !audio.ok ? (audio?.reason || session.audio?.error || "no-response") : null,
       detail: audio?.error || session.audio?.detail || null
-    },
-    transcript: {
-      ok: segments.length > 0,
-      segments: segments.length
     }
   };
 
@@ -146,11 +141,6 @@ async function stopSession() {
     writes.push(downloadFile(`${folder}/audio.${audioExt}`, audio.dataUrl));
   }
 
-  if (segments.length > 0) {
-    writes.push(downloadFile(`${folder}/transcript.txt`, toDataUrl("text/plain", renderTranscript(segments))));
-    writes.push(downloadFile(`${folder}/timeline.md`, toDataUrl("text/markdown", renderTimeline(meta, events, segments))));
-  }
-
   writes.push(downloadFile(`${folder}/log.txt`, toDataUrl("text/plain", renderLog(meta, events))));
   writes.push(downloadFile(`${folder}/events.jsonl`, toDataUrl("application/jsonl", events.map((e) => JSON.stringify(e)).join("\n") + "\n")));
   writes.push(downloadFile(`${folder}/session.json`, toDataUrl("application/json", JSON.stringify(meta, null, 2))));
@@ -158,7 +148,6 @@ async function stopSession() {
   const ids = await Promise.all(writes);
 
   const lastAudio = meta.audio;
-  const lastTranscript = meta.transcript;
   session = null;
   await chrome.storage.session.remove(SESSION_KEY);
   await closeOffscreen();
@@ -169,7 +158,6 @@ async function stopSession() {
     durationMs: meta.durationMs,
     events: meta.events,
     audio: lastAudio,
-    transcript: lastTranscript,
     downloadId: ids.find(Boolean) || null
   };
   await chrome.storage.local.set({ [LAST_KEY]: last });
@@ -193,75 +181,6 @@ function downloadFile(filename, url) {
   });
 }
 
-function renderTranscript(segments) {
-  const lines = [];
-  for (const seg of segments) {
-    const t = fmtClock(seg.startMs);
-    lines.push(`[${t}] ${seg.text}`);
-  }
-  return lines.join("\n") + "\n";
-}
-
-function shortDescribeEvent(ev) {
-  switch (ev.kind) {
-    case "click":
-      return `click → ${ev.label || ev.selector || "(target)"}`;
-    case "context-menu":
-      return `right-click → ${ev.label || ev.selector || "(target)"}`;
-    case "selection":
-      return `selection → ${JSON.stringify((ev.value || "").slice(0, 80))}`;
-    case "input":
-      return `input → ${JSON.stringify((ev.value || "").slice(0, 80))}`;
-    case "key":
-      return `key ${ev.key || "?"}`;
-    case "scroll":
-      return `scroll`;
-    case "visibility":
-      return `tab ${ev.value || "?"}`;
-    case "page": {
-      try {
-        const u = new URL(ev.url);
-        return `opened ${u.host}${u.pathname}`;
-      } catch {
-        return `opened ${ev.url || ""}`;
-      }
-    }
-    default:
-      return ev.kind;
-  }
-}
-
-function renderTimeline(meta, events, segments) {
-  const items = [];
-  for (const seg of segments) {
-    items.push({
-      t: typeof seg.startMs === "number" ? seg.startMs : 0,
-      kind: "voice",
-      text: seg.text
-    });
-  }
-  for (const ev of events) {
-    items.push({
-      t: typeof ev.t === "number" ? ev.t : 0,
-      kind: "event",
-      text: shortDescribeEvent(ev)
-    });
-  }
-  items.sort((a, b) => a.t - b.t);
-
-  const lines = [];
-  lines.push(`# WalkieTalkie session ${meta.id} — voice over events`);
-  lines.push("");
-  lines.push(`${fmtClock(meta.durationMs)}, ${segments.length} voice segment${segments.length === 1 ? "" : "s"}, ${events.length} DOM event${events.length === 1 ? "" : "s"}.`);
-  lines.push("");
-  lines.push("| t        | source | content |");
-  lines.push("| -------- | ------ | ------- |");
-  for (const item of items) {
-    const safe = item.text.replace(/\|/g, "\\|").replace(/\n/g, " ");
-    lines.push(`| ${fmtClock(item.t)} | ${item.kind} | ${safe} |`);
-  }
-  return lines.join("\n") + "\n";
-}
 
 function fmtClock(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -285,11 +204,6 @@ function renderLog(meta, events) {
     lines.push(`audio: ${meta.audio.mime || "?"}, ${Math.round((meta.audio.bytes || 0) / 1024)} KB`);
   } else {
     lines.push(`audio: missing (${meta.audio?.error || "unknown"})`);
-  }
-  if (meta.transcript?.ok) {
-    lines.push(`transcript: ${meta.transcript.segments} voice segments`);
-  } else {
-    lines.push(`transcript: none captured`);
   }
   lines.push("");
   for (const ev of events) {

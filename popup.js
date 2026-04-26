@@ -52,37 +52,37 @@ function fmtDuration(ms) {
 
 function buildBriefing(last) {
   const ext = last.audio?.ext || "webm";
-  const head = `duration: ${fmtDuration(last.durationMs)}, ${last.events} events` +
-    (last.transcript?.ok ? `, ${last.transcript.segments} voice segments` : "");
   const lines = [
     `WalkieTalkie session ${last.id}`,
     `folder: ~/Downloads/${last.folder}`,
-    head,
+    `duration: ${fmtDuration(last.durationMs)}, ${last.events} events`,
     `files:`
   ];
   if (last.audio?.ok) {
-    lines.push(`  audio.${ext.padEnd(8)}microphone capture (${ext})`);
+    lines.push(`  audio.${ext.padEnd(6)}microphone capture (${ext})`);
   }
-  if (last.transcript?.ok) {
-    lines.push(`  timeline.md     voice over events, merged by timestamp`);
-    lines.push(`  transcript.txt  what you said, plain text with timestamps`);
-  }
-  lines.push(`  log.txt         human-readable timeline of clicks, selections, keys`);
-  lines.push(`  events.jsonl    same events, one JSON object per line`);
-  lines.push(`  session.json    metadata: started, stopped, duration, audio, transcript`);
+  lines.push(`  log.txt       human-readable timeline of clicks, selections, keys`);
+  lines.push(`  events.jsonl  same events, one JSON object per line`);
+  lines.push(`  session.json  metadata: started, stopped, duration, audio, ua`);
   if (last.audio && last.audio.ok === false) {
     lines.push(``);
     lines.push(`audio: missing (${last.audio.error || "unknown"}). Events only.`);
   }
   lines.push(``);
-  if (last.transcript?.ok) {
-    lines.push(`Read timeline.md first — voice and DOM events line up there.`);
-    lines.push(`Match timestamps to events.jsonl for full DOM context (selector,`);
-    lines.push(`bbox, attrs) on any moment.`);
+  lines.push(`Instructions for you (the agent):`);
+  if (last.audio?.ok) {
+    lines.push(`1. Transcribe audio.${ext} yourself.`);
+    lines.push(`2. Read log.txt and line up each voice segment with the DOM events`);
+    lines.push(`   by timestamp. Use events.jsonl for full DOM context (selector,`);
+    lines.push(`   bbox, attrs) on any moment.`);
   } else {
-    lines.push(`Read log.txt first for the timeline. Match timestamps in events.jsonl`);
-    lines.push(`for full DOM context (selector, bbox, attrs) on any moment.`);
+    lines.push(`1. Read log.txt and use events.jsonl for full DOM context`);
+    lines.push(`   (selector, bbox, attrs) on any moment.`);
   }
+  lines.push(`3. If anything is unclear — what I meant, why I did something, where`);
+  lines.push(`   I want to take it next — ask before assuming.`);
+  lines.push(`4. After the analysis, summarize what you understood and confirm the`);
+  lines.push(`   direction with me before you act on it.`);
   return lines.join("\n");
 }
 
