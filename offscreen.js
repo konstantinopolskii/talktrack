@@ -1,12 +1,23 @@
 /* WalkieTalkie — offscreen audio recorder.
  *
  * MV3 service workers can't hold a MediaRecorder. We run one here in a
- * lifetime-pinned offscreen document for the duration of a session. */
+ * lifetime-pinned offscreen document for the duration of a session.
+ * Alongside the recorder we run a small AnalyserNode tap on the same
+ * stream, sample RMS at ~12 Hz, and broadcast it to background → all
+ * host tabs so the in-page overlay can animate a level meter. */
+
+const MIC_DEVICE_KEY = "walkietalkie:mic-device-id";
+const LEVEL_INTERVAL_MS = 80;
 
 let recorder = null;
 let stream = null;
 let chunks = [];
 let mime = "audio/webm";
+
+let audioCtx = null;
+let analyser = null;
+let levelTimer = null;
+let levelData = null;
 
 function pickMime() {
   // Prefer mp4/AAC: plays everywhere on macOS, iOS, Windows out of the
@@ -32,10 +43,60 @@ function extFor(m) {
   return "bin";
 }
 
+function startLevelLoop() {
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.6;
+    source.connect(analyser);
+    levelData = new Uint8Array(analyser.fftSize);
+  } catch {
+    return;
+  }
+  levelTimer = setInterval(() => {
+    if (!analyser) return;
+    analyser.getByteTimeDomainData(levelData);
+    let sum = 0;
+    for (let i = 0; i < levelData.length; i++) {
+      const v = (levelData[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / levelData.length);
+    chrome.runtime.sendMessage({ target: "background", type: "audio:level", level: rms })
+      .catch(() => {});
+  }, LEVEL_INTERVAL_MS);
+}
+
+function stopLevelLoop() {
+  if (levelTimer) clearInterval(levelTimer);
+  levelTimer = null;
+  analyser = null;
+  levelData = null;
+  if (audioCtx) {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
+  }
+}
+
+async function getDeviceId() {
+  try {
+    const stored = await chrome.storage.local.get(MIC_DEVICE_KEY);
+    return stored[MIC_DEVICE_KEY] || "";
+  } catch {
+    return "";
+  }
+}
+
 async function start() {
   if (recorder) return { ok: false, reason: "already-running" };
+  const deviceId = await getDeviceId();
+  const constraints = deviceId
+    ? { audio: { deviceId: { ideal: deviceId } } }
+    : { audio: true };
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch (e) {
     return { ok: false, reason: "mic-denied", error: String(e && e.message || e) };
   }
@@ -48,7 +109,8 @@ async function start() {
     if (e.data && e.data.size) chunks.push(e.data);
   });
   recorder.start(1000);
-  return { ok: true, mime, ext: extFor(mime) };
+  startLevelLoop();
+  return { ok: true, mime, ext: extFor(mime), deviceId };
 }
 
 function blobToDataUrl(blob) {
@@ -62,6 +124,7 @@ function blobToDataUrl(blob) {
 
 async function stop() {
   if (!recorder) return { ok: false, reason: "not-running" };
+  stopLevelLoop();
   const finished = new Promise((resolve) => {
     recorder.addEventListener("stop", () => resolve(), { once: true });
   });

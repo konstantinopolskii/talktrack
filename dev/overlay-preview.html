@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>WalkieTalkie overlay preview</title>
+  <style>
+    body { margin: 0; height: 100vh; background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); }
+    .stage { position: absolute; inset: 0; }
+    .marker { position: absolute; top: 24px; left: 24px; font: 14px system-ui; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="marker">Sample host page (dev preview of the recording overlay)</div>
+  </div>
+  <script>
+    // Stub chrome.runtime so content.js doesn't crash when loaded standalone.
+    window.chrome = {
+      runtime: {
+        onMessage: { addListener: () => {} },
+        sendMessage: () => Promise.resolve(null)
+      }
+    };
+  </script>
+  <script src="../content.js"></script>
+  <script>
+    // Manually call the same overlay path content.js exposes by re-running
+    // the message a host script would receive. The IIFE in content.js
+    // captured the listener; we route through the registered listener.
+    // Easiest: re-dispatch by querying internals — but the IIFE doesn't
+    // expose them. So we just inline a standalone copy of the overlay
+    // for visuals here.
+
+    const host = document.createElement("div");
+    Object.assign(host.style, {
+      position: "fixed", left: "50%", bottom: "20px",
+      transform: "translateX(-50%)", width: "300px", height: "46px",
+      pointerEvents: "none", zIndex: "2147483647"
+    });
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <style>
+        :host, * { box-sizing: border-box; margin: 0; padding: 0; }
+        .overlay {
+          width: 300px; height: 46px; border-radius: 12px;
+          background: rgba(0,0,0,0.78); backdrop-filter: blur(10px);
+          color: #fff; display: flex; align-items: center; gap: 10px;
+          padding: 0 12px; font-family: -apple-system, system-ui, sans-serif;
+        }
+        canvas { width: 64px; height: 26px; flex: 0 0 auto; }
+        .label { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; gap: 2px; }
+        .tag { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .text { font-size: 10px; opacity: 0.62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      </style>
+      <div class="overlay">
+        <canvas></canvas>
+        <div class="label">
+          <span class="tag">button.nav-item</span>
+          <span class="text">Discovery v2 (Sonnet, exhaustive) 849 lines</span>
+        </div>
+      </div>
+    `;
+    document.documentElement.appendChild(host);
+
+    const canvas = shadow.querySelector("canvas");
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 64 * dpr;
+    canvas.height = 26 * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+
+    // Synthesize 12 sample levels resembling speech RMS (~0.05-0.25).
+    const samples = [0.05, 0.10, 0.18, 0.22, 0.16, 0.08, 0.20, 0.25, 0.19, 0.12, 0.15, 0.10];
+    function draw() {
+      const W = 64, H = 26;
+      ctx.clearRect(0, 0, W, H);
+      const bars = 12, barW = 3;
+      const gap = (W - bars * barW) / (bars - 1);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      for (let i = 0; i < bars; i++) {
+        const v = samples[i];
+        const punched = Math.min(1, v * 4.5);
+        const barH = Math.max(2, punched * H);
+        const x = i * (barW + gap);
+        const y = (H - barH) / 2;
+        const r = Math.min(barW / 2, barH / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + barW - r, y);
+        ctx.arc(x + barW - r, y + r, r, -Math.PI / 2, 0);
+        ctx.lineTo(x + barW, y + barH - r);
+        ctx.arc(x + barW - r, y + barH - r, r, 0, Math.PI / 2);
+        ctx.lineTo(x + r, y + barH);
+        ctx.arc(x + r, y + barH - r, r, Math.PI / 2, Math.PI);
+        ctx.lineTo(x, y + r);
+        ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2);
+        ctx.fill();
+      }
+    }
+    draw();
+  </script>
+</body>
+</html>

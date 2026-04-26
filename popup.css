@@ -66,3 +66,44 @@ html, body {
   font-size: var(--fs-micro);
   line-height: var(--lh-micro);
 }
+
+/* The kit's .field is built around <input type="text"> + a label stack;
+   a native <select> doesn't share that markup. These rules give the
+   select the same row rhythm without dragging the field hover/focus
+   theme along — picking a mic is a config gesture, not a typing one. */
+#mic-picker .field {
+  cursor: pointer;
+  gap: var(--space-1);
+  padding-right: var(--space-6);
+  position: relative;
+}
+#mic-picker .field::after {
+  content: "";
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: translateY(-75%) rotate(45deg);
+  pointer-events: none;
+}
+#mic-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--fs-subtitle);
+  line-height: var(--lh-subtitle);
+  color: var(--color-text);
+  cursor: pointer;
+}
+#mic-select:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}

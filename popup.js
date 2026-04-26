@@ -11,6 +11,9 @@ const copyBtn = document.getElementById("copy-briefing");
 const micWarning = document.getElementById("mic-warning");
 const micWarningDetail = document.getElementById("mic-warning-detail");
 const micSetupBtn = document.getElementById("open-mic-setup");
+const micSelect = document.getElementById("mic-select");
+
+const MIC_DEVICE_KEY = "walkietalkie:mic-device-id";
 
 let timerHandle = null;
 
@@ -114,19 +117,61 @@ function showMicWarning(audio) {
   micWarning.hidden = false;
 }
 
+async function populateMicList() {
+  // enumerateDevices only returns labels once the page has been granted
+  // mic permission. Without labels we still get deviceIds, just unnamed.
+  let devices = [];
+  try {
+    devices = await navigator.mediaDevices.enumerateDevices();
+  } catch {
+    return;
+  }
+  const mics = devices.filter((d) => d.kind === "audioinput");
+  const stored = (await chrome.storage.local.get(MIC_DEVICE_KEY))[MIC_DEVICE_KEY] || "";
+
+  micSelect.innerHTML = "";
+  const def = document.createElement("option");
+  def.value = "";
+  def.textContent = "Default (system input)";
+  micSelect.appendChild(def);
+
+  for (const m of mics) {
+    const opt = document.createElement("option");
+    opt.value = m.deviceId;
+    opt.textContent = m.label || `Microphone (${m.deviceId.slice(0, 6)}…)`;
+    micSelect.appendChild(opt);
+  }
+
+  // Restore selection if the stored device is still present; otherwise
+  // fall back to default (empty string).
+  if (stored && mics.some((m) => m.deviceId === stored)) {
+    micSelect.value = stored;
+  } else {
+    micSelect.value = "";
+  }
+}
+
 async function refresh() {
   const state = await chrome.runtime.sendMessage({ target: "background", type: "popup:state" });
   if (state.recording) {
     setMode("recording");
     startTimer(state.startedAt);
     showMicWarning(state.audio);
+    micSelect.disabled = true;
   } else {
     setMode("idle");
     stopTimer();
     showMicWarning(state.last?.audio);
+    micSelect.disabled = false;
   }
   renderLast(state.last);
 }
+
+micSelect.addEventListener("change", async () => {
+  await chrome.storage.local.set({ [MIC_DEVICE_KEY]: micSelect.value });
+});
+
+populateMicList();
 
 startBtn.addEventListener("click", async () => {
   startBtn.disabled = true;
@@ -136,6 +181,7 @@ startBtn.addEventListener("click", async () => {
     setMode("recording");
     startTimer(res.startedAt);
     showMicWarning(res.audio);
+    micSelect.disabled = true;
   }
 });
 
@@ -147,6 +193,7 @@ stopBtn.addEventListener("click", async () => {
     setMode("idle");
     stopTimer();
     renderLast(res.last);
+    micSelect.disabled = false;
   }
 });
 

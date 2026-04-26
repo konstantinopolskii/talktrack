@@ -61,6 +61,20 @@
         <button class="button button--primary t-subtitle" id="stop" data-mode-show="recording" type="button" hidden>Stop</button>
       </article>
 
+      <article class="card" id="mic-picker">
+        <div class="card__heading">
+          <h3 class="t-title">Microphone</h3>
+          <p class="t-caption">Pick which mic to record from. Default uses the system input.</p>
+        </div>
+        <label class="field" for="mic-select">
+          <select class="t-subtitle" id="mic-select">
+            <option value="">Default (system input)</option>
+            <option value="abc">MacBook Pro Microphone</option>
+            <option value="def">External USB mic</option>
+          </select>
+        </label>
+      </article>
+
       <article class="card" id="mic-warning" hidden>
         <div class="card__heading">
           <h3 class="t-title">Microphone not granted</h3>

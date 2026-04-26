@@ -10,7 +10,14 @@
 
   let recording = false;
   let startedAt = 0;
-  let indicator = null;
+
+  let overlayHost = null;
+  let overlayShadow = null;
+  let waveCanvas = null;
+  let waveCtx = null;
+  let waveRaf = null;
+  const LEVEL_BARS = 12;
+  const levelSamples = []; // rolling buffer of recent RMS values
 
   const MAX_TEXT = 160;
 
@@ -96,6 +103,24 @@
     };
   }
 
+  function shortTagFor(el) {
+    if (!(el instanceof Element)) return "";
+    const tag = el.nodeName.toLowerCase();
+    const id = el.id ? `#${el.id}` : "";
+    const cls = el.classList && el.classList.length
+      ? "." + Array.from(el.classList).slice(0, 2).join(".")
+      : "";
+    return `${tag}${id}${cls}`;
+  }
+
+  function setOverlayLabel(tag, text) {
+    if (!overlayShadow) return;
+    const tagEl = overlayShadow.querySelector(".tag");
+    const textEl = overlayShadow.querySelector(".text");
+    if (tagEl) tagEl.textContent = tag || "—";
+    if (textEl) textEl.textContent = text || "";
+  }
+
   function onClick(e) {
     const d = describe(e.target);
     if (!d) return;
@@ -108,6 +133,7 @@
       viewport: viewport(),
       ...d
     });
+    setOverlayLabel(shortTagFor(e.target), clip(d.text, 60));
   }
 
   function onContextMenu(e) {
@@ -121,6 +147,7 @@
       viewport: viewport(),
       ...d
     });
+    setOverlayLabel(shortTagFor(e.target), clip(d.text, 60));
   }
 
   function onKeyDown(e) {
@@ -160,6 +187,7 @@
         viewport: viewport(),
         ...d
       });
+      if (anchor) setOverlayLabel(shortTagFor(anchor), `selected: ${clip(text, 50)}`);
     }, 300);
   }
 
@@ -167,13 +195,15 @@
     if (!e.target || !/^(INPUT|TEXTAREA)$/.test(e.target.nodeName)) return;
     const d = describe(e.target);
     if (!d) return;
+    const value = clip(e.target.value || "", MAX_TEXT);
     send({
       kind: "input",
       t: now(),
       url: location.href,
-      value: clip(e.target.value || "", MAX_TEXT),
+      value,
       ...d
     });
+    setOverlayLabel(shortTagFor(e.target), value ? `typed: ${clip(value, 50)}` : "(empty)");
   }
 
   let scrollTimer = null;
@@ -198,33 +228,138 @@
     });
   }
 
-  function showIndicator() {
-    if (indicator) return;
-    indicator = document.createElement("div");
-    indicator.id = "walkietalkie-indicator";
-    Object.assign(indicator.style, {
+  function showOverlay() {
+    if (overlayHost) return;
+    overlayHost = document.createElement("div");
+    overlayHost.id = "walkietalkie-overlay-host";
+    Object.assign(overlayHost.style, {
       position: "fixed",
-      right: "16px",
-      bottom: "16px",
-      width: "12px",
-      height: "12px",
-      borderRadius: "50%",
-      background: "#e21b1b",
-      boxShadow: "0 0 0 4px rgba(226, 27, 27, 0.18)",
+      left: "50%",
+      bottom: "20px",
+      transform: "translateX(-50%)",
       zIndex: "2147483647",
       pointerEvents: "none",
-      animation: "walkietalkie-pulse 1.4s ease-in-out infinite"
+      width: "300px",
+      height: "46px"
     });
-    const style = document.createElement("style");
-    style.textContent = `@keyframes walkietalkie-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: 0.6; } }`;
-    document.documentElement.appendChild(style);
-    document.documentElement.appendChild(indicator);
+    overlayShadow = overlayHost.attachShadow({ mode: "open" });
+    overlayShadow.innerHTML = `
+      <style>
+        :host, * { box-sizing: border-box; margin: 0; padding: 0; }
+        .overlay {
+          width: 300px;
+          height: 46px;
+          border-radius: 12px;
+          background: rgba(0, 0, 0, 0.78);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 12px;
+          font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+          font-feature-settings: "tnum" 1;
+          animation: wt-fade 160ms ease-out;
+        }
+        @keyframes wt-fade {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        canvas { width: 64px; height: 26px; flex: 0 0 auto; }
+        .label {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1 1 auto;
+          line-height: 1.25;
+          gap: 2px;
+        }
+        .tag {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .text {
+          font-size: 10px;
+          opacity: 0.62;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      </style>
+      <div class="overlay" role="status" aria-label="WalkieTalkie recording">
+        <canvas></canvas>
+        <div class="label">
+          <span class="tag">Recording</span>
+          <span class="text"></span>
+        </div>
+      </div>
+    `;
+    document.documentElement.appendChild(overlayHost);
+
+    waveCanvas = overlayShadow.querySelector("canvas");
+    const dpr = window.devicePixelRatio || 1;
+    waveCanvas.width = 64 * dpr;
+    waveCanvas.height = 26 * dpr;
+    waveCtx = waveCanvas.getContext("2d");
+    waveCtx.scale(dpr, dpr);
+    levelSamples.length = 0;
+    setOverlayLabel("Recording", clip(document.title || location.host, 60));
+    drawWave();
   }
 
-  function hideIndicator() {
-    if (!indicator) return;
-    indicator.remove();
-    indicator = null;
+  function destroyOverlay() {
+    if (waveRaf) cancelAnimationFrame(waveRaf);
+    waveRaf = null;
+    waveCtx = null;
+    waveCanvas = null;
+    levelSamples.length = 0;
+    if (overlayHost) overlayHost.remove();
+    overlayHost = null;
+    overlayShadow = null;
+  }
+
+  function pushLevel(v) {
+    if (typeof v !== "number" || !isFinite(v)) return;
+    levelSamples.push(v);
+    if (levelSamples.length > LEVEL_BARS) levelSamples.shift();
+  }
+
+  function drawWave() {
+    if (!waveCtx) return;
+    const W = 64;
+    const H = 26;
+    waveCtx.clearRect(0, 0, W, H);
+    const barW = 3;
+    const gap = (W - LEVEL_BARS * barW) / (LEVEL_BARS - 1);
+    waveCtx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    for (let i = 0; i < LEVEL_BARS; i++) {
+      const idx = levelSamples.length - LEVEL_BARS + i;
+      const v = idx >= 0 ? levelSamples[idx] : 0;
+      // Speech RMS hovers ~0.05–0.25; scale into a usable visual range.
+      const punched = Math.min(1, v * 4.5);
+      const barH = Math.max(2, punched * H);
+      const x = i * (barW + gap);
+      const y = (H - barH) / 2;
+      // Slight rounded caps via two arcs.
+      const r = Math.min(barW / 2, barH / 2);
+      waveCtx.beginPath();
+      waveCtx.moveTo(x + r, y);
+      waveCtx.lineTo(x + barW - r, y);
+      waveCtx.arc(x + barW - r, y + r, r, -Math.PI / 2, 0);
+      waveCtx.lineTo(x + barW, y + barH - r);
+      waveCtx.arc(x + barW - r, y + barH - r, r, 0, Math.PI / 2);
+      waveCtx.lineTo(x + r, y + barH);
+      waveCtx.arc(x + r, y + barH - r, r, Math.PI / 2, Math.PI);
+      waveCtx.lineTo(x, y + r);
+      waveCtx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2);
+      waveCtx.fill();
+    }
+    waveRaf = requestAnimationFrame(drawWave);
   }
 
   function attach() {
@@ -252,7 +387,7 @@
     recording = true;
     startedAt = t || Date.now();
     attach();
-    showIndicator();
+    showOverlay();
     send({
       kind: "page",
       t: now(),
@@ -265,7 +400,7 @@
   function stop() {
     if (!recording) return;
     detach();
-    hideIndicator();
+    destroyOverlay();
     recording = false;
   }
 
@@ -273,6 +408,7 @@
     if (!msg || msg.target !== "content") return;
     if (msg.type === "start") start(msg.startedAt);
     else if (msg.type === "stop") stop();
+    else if (msg.type === "level") pushLevel(msg.level);
   });
 
   // Late attach: if a session is already running when this script loads

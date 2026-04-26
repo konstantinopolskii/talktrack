@@ -68,6 +68,28 @@ async function broadcastToTabs(message) {
   }
 }
 
+// Hot path: level samples land here ~12 times/sec while recording. We
+// forward to the visible window's tabs only — backgrounded tabs don't
+// render the overlay, so the wave there would burn cycles for nothing.
+let levelBroadcastInflight = false;
+async function broadcastLevel(level) {
+  if (levelBroadcastInflight) return;
+  levelBroadcastInflight = true;
+  try {
+    const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+    for (const w of windows) {
+      if (w.state === "minimized") continue;
+      const tabs = await chrome.tabs.query({ windowId: w.id, active: true });
+      for (const tab of tabs) {
+        if (!tab.id || !tab.url || tab.url.startsWith("chrome://") || tab.url.startsWith("chrome-extension://")) continue;
+        chrome.tabs.sendMessage(tab.id, { target: "content", type: "level", level }).catch(() => {});
+      }
+    }
+  } finally {
+    levelBroadcastInflight = false;
+  }
+}
+
 async function startSession() {
   if (session) return { ok: false, reason: "already-running" };
   const id = newSessionId();
@@ -271,6 +293,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "offscreen:ready":
       if (offscreenReadyResolver) offscreenReadyResolver();
       offscreenReadyResolver = null;
+      return false;
+    case "audio:level":
+      if (session) broadcastLevel(message.level);
       return false;
     case "content:event":
       if (session) session.events.push(message.event);
