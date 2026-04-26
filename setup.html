@@ -16,24 +16,25 @@
         <p class="t-caption t-muted">One-time grant. After this, recording starts straight from the popup.</p>
       </header>
 
-      <article class="card" id="setup">
+      <article class="card" id="setup" data-state="idle">
         <div class="card__heading" data-state="idle">
-          <h3 class="t-title">Why this page</h3>
-          <p class="t-caption">Chrome only shows the microphone prompt for full pages, not extension popups. Click below to trigger it. Pick allow.</p>
+          <h3 class="t-title">Click allow on the prompt</h3>
+          <p class="t-caption">Chrome only shows the microphone prompt for full pages, not extension popups. Hit the button below, then click <strong>Allow</strong> on the prompt that drops down from the address bar.</p>
         </div>
 
         <div class="card__heading" data-state="ok" hidden>
           <h3 class="t-title">Granted</h3>
-          <p class="t-caption">Microphone is set. You can close this tab and start recording from the popup.</p>
+          <p class="t-caption">Microphone is set. Closing this tab. Reopen the popup and start.</p>
         </div>
 
         <div class="card__heading" data-state="denied" hidden>
           <h3 class="t-title">Blocked</h3>
-          <p class="t-caption">Chrome refused the request. Open Site settings for this page from the address bar lock icon and switch microphone to Allow.</p>
+          <p class="t-caption" id="denied-detail">Chrome refused the request. Click the lock icon next to the address bar, switch microphone to Allow, then reload this page.</p>
+          <p class="t-caption t-muted" id="error-detail"></p>
         </div>
 
-        <button class="button button--primary t-subtitle" id="grant" type="button" data-state="idle">Request microphone</button>
-        <button class="button t-subtitle" id="close" type="button" data-state="ok" hidden>Close tab</button>
+        <button class="button button--primary t-subtitle" id="grant" type="button" data-state="idle" autofocus>Request microphone</button>
+        <button class="button t-subtitle" id="retry" type="button" data-state="denied" hidden>Try again</button>
       </article>
     </section>
   </aside>

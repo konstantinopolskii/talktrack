@@ -251,6 +251,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: true });
       return false;
     case "setup:granted":
+      // Clear the stale mic warning from the last failed session so the
+      // popup stops showing it after the user actually granted access.
+      // The session.json + log.txt on disk keep the historical truth.
+      (async () => {
+        const stored = await chrome.storage.local.get(LAST_KEY);
+        const last = stored[LAST_KEY];
+        if (last && last.audio && last.audio.ok === false) {
+          last.audio = { ok: null, error: null, mime: null, bytes: 0 };
+          await chrome.storage.local.set({ [LAST_KEY]: last });
+        }
+      })();
       sendResponse({ ok: true });
       return false;
     case "offscreen:ready":
