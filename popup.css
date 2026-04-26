@@ -21,18 +21,18 @@ html, body {
    block flow and let the inspector own its own height. The .app[data-view="inspector"]
    wrapper still satisfies the kit's narrow-viewport guard that re-shows the
    inspector below 768px. */
-.talktrack-popup {
+.walkietalkie-popup {
   width: var(--inspector-w);
 }
 
-.talktrack-popup .app {
+.walkietalkie-popup .app {
   display: block;
   height: auto;
   overflow: visible;
   grid-template-columns: none;
 }
 
-.talktrack-popup .inspector {
+.walkietalkie-popup .inspector {
   height: auto;
   overflow: visible;
   padding: var(--space-3) var(--col-pad-x) var(--space-6);

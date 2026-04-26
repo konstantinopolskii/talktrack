@@ -9,7 +9,7 @@ const src = path.resolve(root, "node_modules", "@kk", "design-system");
 const dest = path.resolve(root, "vendor", "kk");
 
 if (!fs.existsSync(src)) {
-  console.warn("[talktrack] @kk/design-system not in node_modules; skipping vendor copy.");
+  console.warn("[walkietalkie] @kk/design-system not in node_modules; skipping vendor copy.");
   process.exit(0);
 }
 
@@ -31,4 +31,4 @@ function copy(rel) {
 
 ["vars.css", "style.css", "fonts"].forEach(copy);
 
-console.log("[talktrack] vendored @kk/design-system into vendor/kk");
+console.log("[walkietalkie] vendored @kk/design-system into vendor/kk");

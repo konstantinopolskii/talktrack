@@ -1,7 +1,7 @@
-# TalkTrack
+# WalkieTalkie
 
 Chrome extension that records voice plus DOM interactions on any open page.
-You hit start, talk through the page, click whatever catches you. TalkTrack
+You hit start, talk through the page, click whatever catches you. WalkieTalkie
 captures audio and a structured log of every click, selection, key combo,
 text input, and scroll, and writes the bundle to disk when you stop.
 
@@ -10,7 +10,7 @@ text input, and scroll, and writes the bundle to disk when you stop.
 Each session writes a folder under your Chrome download directory:
 
 ```
-<chrome download dir>/talktrack/session-YYYYMMDD-HHMMSS/
+<chrome download dir>/walkietalkie/session-YYYYMMDD-HHMMSS/
 ├── audio.webm        — microphone capture, opus in webm
 ├── log.txt           — human-readable timeline
 ├── events.jsonl      — same events, one JSON per line
@@ -24,8 +24,8 @@ After a session, the popup shows a paste-ready briefing — drop it into
 your agent and it knows where to look and what each file holds:
 
 ```
-TalkTrack session 20260426-114530
-folder: ~/Downloads/talktrack/session-20260426-114530
+WalkieTalkie session 20260426-114530
+folder: ~/Downloads/walkietalkie/session-20260426-114530
 duration: 3 min 12 sec, 47 events
 files:
   audio.webm    microphone capture, opus in webm

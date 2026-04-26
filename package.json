@@ -1,5 +1,5 @@
 {
-  "name": "talktrack",
+  "name": "walkietalkie",
   "version": "0.1.0",
   "private": true,
   "description": "Chrome extension that records voice plus DOM interactions on any page.",

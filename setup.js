@@ -1,4 +1,4 @@
-/* TalkTrack — first-run microphone grant.
+/* WalkieTalkie — first-run microphone grant.
  *
  * Runs as a regular extension page (chrome-extension://<id>/setup.html)
  * because getUserMedia inside an offscreen document can't show a prompt.

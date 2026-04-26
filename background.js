@@ -1,4 +1,4 @@
-/* TalkTrack — service worker.
+/* WalkieTalkie — service worker.
  *
  * Owns the single source of truth for session state. Coordinates the
  * offscreen document (audio capture) and content scripts (DOM event
@@ -10,12 +10,12 @@
  *                                      └──▶ content scripts (DOM events)
  *   offscreen ──audio dataUrl──▶ background
  *   content  ──events──▶ background
- *   background ──downloads.download──▶ ~/Downloads/talktrack/session-<id>/
+ *   background ──downloads.download──▶ ~/Downloads/walkietalkie/session-<id>/
  */
 
 const OFFSCREEN_URL = "offscreen.html";
-const SESSION_KEY = "talktrack:session";
-const LAST_KEY = "talktrack:last";
+const SESSION_KEY = "walkietalkie:session";
+const LAST_KEY = "walkietalkie:last";
 
 let session = null;
 let offscreenReadyResolver = null;
@@ -35,7 +35,7 @@ async function ensureOffscreen() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["USER_MEDIA"],
-    justification: "Record microphone audio for the active TalkTrack session."
+    justification: "Record microphone audio for the active WalkieTalkie session."
   });
   await ready;
   offscreenReadyResolver = null;
@@ -131,7 +131,7 @@ async function stopSession() {
     }
   };
 
-  const folder = `talktrack/session-${session.id}`;
+  const folder = `walkietalkie/session-${session.id}`;
   const writes = [];
 
   if (audio && audio.ok && audio.dataUrl) {
@@ -191,7 +191,7 @@ function renderLog(meta, events) {
   const lines = [];
   const startedAt = new Date(meta.startedAt).toISOString();
   const stoppedAt = new Date(meta.stoppedAt).toISOString();
-  lines.push(`TalkTrack session ${meta.id}`);
+  lines.push(`WalkieTalkie session ${meta.id}`);
   lines.push(`started: ${startedAt}`);
   lines.push(`stopped: ${stoppedAt}`);
   lines.push(`duration: ${fmtClock(meta.durationMs)}`);

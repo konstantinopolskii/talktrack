@@ -1,4 +1,4 @@
-/* TalkTrack — offscreen audio recorder.
+/* WalkieTalkie — offscreen audio recorder.
  *
  * MV3 service workers can't hold a MediaRecorder. We run one here in a
  * lifetime-pinned offscreen document for the duration of a session. */

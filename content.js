@@ -1,12 +1,12 @@
-/* TalkTrack — content script.
+/* WalkieTalkie — content script.
  *
  * Listens to page interactions while a session is recording and forwards
  * structured events back to the background service worker. Stays silent
  * when no session is active. */
 
 (() => {
-  if (window.__talktrack_attached__) return;
-  window.__talktrack_attached__ = true;
+  if (window.__walkietalkie_attached__) return;
+  window.__walkietalkie_attached__ = true;
 
   let recording = false;
   let startedAt = 0;
@@ -201,7 +201,7 @@
   function showIndicator() {
     if (indicator) return;
     indicator = document.createElement("div");
-    indicator.id = "talktrack-indicator";
+    indicator.id = "walkietalkie-indicator";
     Object.assign(indicator.style, {
       position: "fixed",
       right: "16px",
@@ -213,10 +213,10 @@
       boxShadow: "0 0 0 4px rgba(226, 27, 27, 0.18)",
       zIndex: "2147483647",
       pointerEvents: "none",
-      animation: "talktrack-pulse 1.4s ease-in-out infinite"
+      animation: "walkietalkie-pulse 1.4s ease-in-out infinite"
     });
     const style = document.createElement("style");
-    style.textContent = `@keyframes talktrack-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: 0.6; } }`;
+    style.textContent = `@keyframes walkietalkie-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: 0.6; } }`;
     document.documentElement.appendChild(style);
     document.documentElement.appendChild(indicator);
   }

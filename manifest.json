@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TalkTrack",
+  "name": "WalkieTalkie",
   "version": "0.1.0",
-  "description": "Talk and tap. TalkTrack records voice plus DOM interactions on any page and ships an audio + log bundle to disk.",
+  "description": "Talk and tap. WalkieTalkie records voice plus DOM interactions on any page and ships an audio + log bundle to disk.",
   "permissions": [
     "downloads",
     "offscreen",
@@ -20,7 +20,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "TalkTrack"
+    "default_title": "WalkieTalkie"
   },
   "content_scripts": [
     {

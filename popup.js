@@ -1,4 +1,4 @@
-/* TalkTrack — popup controller. */
+/* WalkieTalkie — popup controller. */
 
 const recorder = document.getElementById("recorder");
 const startBtn = document.getElementById("start");
@@ -52,7 +52,7 @@ function fmtDuration(ms) {
 
 function buildBriefing(last) {
   const lines = [
-    `TalkTrack session ${last.id}`,
+    `WalkieTalkie session ${last.id}`,
     `folder: ~/Downloads/${last.folder}`,
     `duration: ${fmtDuration(last.durationMs)}, ${last.events} events`,
     `files:`
