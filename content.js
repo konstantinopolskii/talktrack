@@ -19,6 +19,9 @@
   const LEVEL_BARS = 12;
   const levelSamples = []; // rolling buffer of recent RMS values
 
+  let highlightedEl = null;
+  let highlightOverlay = null;
+
   const MAX_TEXT = 160;
 
   function send(event) {
@@ -121,11 +124,92 @@
     if (textEl) textEl.textContent = text || "";
   }
 
+  function isOurOverlay(el) {
+    // Clicks inside the shadow DOM retarget to the host outside the boundary.
+    return el && el.id === "walkietalkie-overlay-host";
+  }
+
+  function paintHighlight(el) {
+    if (!highlightOverlay) {
+      highlightOverlay = document.createElement("div");
+      Object.assign(highlightOverlay.style, {
+        position: "fixed",
+        pointerEvents: "none",
+        zIndex: "2147483646",
+        boxShadow: "0 0 0 2px #ffffff, 0 0 0 4px #000000",
+        borderRadius: "3px",
+        transition: "top 80ms ease-out, left 80ms ease-out, width 80ms ease-out, height 80ms ease-out",
+        boxSizing: "border-box"
+      });
+      document.documentElement.appendChild(highlightOverlay);
+    }
+    highlightedEl = el;
+    repositionHighlight();
+  }
+
+  function repositionHighlight() {
+    if (!highlightedEl || !highlightOverlay) return;
+    if (!document.contains(highlightedEl)) {
+      clearHighlight();
+      return;
+    }
+    const rect = highlightedEl.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      clearHighlight();
+      return;
+    }
+    Object.assign(highlightOverlay.style, {
+      top: rect.top + "px",
+      left: rect.left + "px",
+      width: rect.width + "px",
+      height: rect.height + "px"
+    });
+  }
+
+  function clearHighlight() {
+    if (highlightOverlay) {
+      highlightOverlay.remove();
+      highlightOverlay = null;
+    }
+    highlightedEl = null;
+  }
+
   function onClick(e) {
+    // Our own floating overlay (stop button etc.) — let through, don't log
+    // a regular click event for it; the stop button has its own wiring.
+    if (isOurOverlay(e.target)) return;
+
+    if (highlightedEl === e.target) {
+      // Second click on the same element — let it through, log a click,
+      // then drop the highlight so the next click starts fresh.
+      const d = describe(e.target);
+      clearHighlight();
+      if (!d) return;
+      send({
+        kind: "click",
+        t: now(),
+        url: location.href,
+        title: document.title,
+        mouse: { x: Math.round(e.clientX), y: Math.round(e.clientY), button: e.button },
+        viewport: viewport(),
+        ...d
+      });
+      setOverlayLabel(shortTagFor(e.target), clip(d.text, 60));
+      return;
+    }
+
+    // First click on a new element — suppress the page's own action,
+    // paint the highlight, log a "highlight" event. Second click on
+    // the same target will pass through above.
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    paintHighlight(e.target);
     const d = describe(e.target);
     if (!d) return;
     send({
-      kind: "click",
+      kind: "highlight",
       t: now(),
       url: location.href,
       title: document.title,
@@ -134,6 +218,36 @@
       ...d
     });
     setOverlayLabel(shortTagFor(e.target), clip(d.text, 60));
+  }
+
+  function onMouseDownCapture(e) {
+    // Some apps (esp. React/Vue) act on mousedown before click ever fires.
+    // Mirror the click guard: first interaction with a new element gets
+    // suppressed, so by the time the user double-confirms, the click
+    // path above takes over.
+    if (isOurOverlay(e.target)) return;
+    if (highlightedEl === e.target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+
+  function onMouseUpCapture(e) {
+    if (isOurOverlay(e.target)) return;
+    if (highlightedEl === e.target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+
+  function onWindowScrollOrResize() {
+    repositionHighlight();
+  }
+
+  function onEscape(e) {
+    if (e.key === "Escape" && highlightedEl) {
+      clearHighlight();
+    }
   }
 
   function onContextMenu(e) {
@@ -398,23 +512,34 @@
   }
 
   function attach() {
+    document.addEventListener("mousedown", onMouseDownCapture, true);
+    document.addEventListener("mouseup", onMouseUpCapture, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("contextmenu", onContextMenu, true);
     document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keydown", onEscape, true);
     document.addEventListener("selectionchange", onSelectionChange, true);
     document.addEventListener("input", onInput, true);
     window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("scroll", onWindowScrollOrResize, true);
+    window.addEventListener("resize", onWindowScrollOrResize);
     document.addEventListener("visibilitychange", onVisibility, true);
   }
 
   function detach() {
+    document.removeEventListener("mousedown", onMouseDownCapture, true);
+    document.removeEventListener("mouseup", onMouseUpCapture, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("contextmenu", onContextMenu, true);
     document.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("keydown", onEscape, true);
     document.removeEventListener("selectionchange", onSelectionChange, true);
     document.removeEventListener("input", onInput, true);
     window.removeEventListener("scroll", onScroll, true);
+    window.removeEventListener("scroll", onWindowScrollOrResize, true);
+    window.removeEventListener("resize", onWindowScrollOrResize);
     document.removeEventListener("visibilitychange", onVisibility, true);
+    clearHighlight();
   }
 
   function start(t) {
