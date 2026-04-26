@@ -257,7 +257,7 @@
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 0 12px;
+          padding: 0 10px 0 12px;
           font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
           font-feature-settings: "tnum" 1;
           animation: wt-fade 160ms ease-out;
@@ -290,6 +290,33 @@
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .stop {
+          flex: 0 0 auto;
+          width: 26px;
+          height: 26px;
+          border: 0;
+          padding: 0;
+          margin: 0;
+          border-radius: 7px;
+          background: rgba(255, 255, 255, 0.14);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: auto;
+          transition: background 120ms ease-out, transform 120ms ease-out;
+          font: inherit;
+        }
+        .stop:hover { background: rgba(255, 255, 255, 0.24); }
+        .stop:active { transform: scale(0.94); background: rgba(255, 255, 255, 0.32); }
+        .stop:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
+        .stop-icon {
+          width: 10px;
+          height: 10px;
+          background: #fff;
+          border-radius: 2px;
+          display: block;
+        }
       </style>
       <div class="overlay" role="status" aria-label="WalkieTalkie recording">
         <canvas></canvas>
@@ -297,6 +324,9 @@
           <span class="tag">Recording</span>
           <span class="text"></span>
         </div>
+        <button class="stop" type="button" aria-label="Stop recording" title="Stop recording">
+          <span class="stop-icon"></span>
+        </button>
       </div>
     `;
     document.documentElement.appendChild(overlayHost);
@@ -308,6 +338,11 @@
     waveCtx = waveCanvas.getContext("2d");
     waveCtx.scale(dpr, dpr);
     levelSamples.length = 0;
+
+    overlayShadow.querySelector(".stop").addEventListener("click", () => {
+      chrome.runtime.sendMessage({ target: "background", type: "popup:stop" }).catch(() => {});
+    });
+
     setOverlayLabel("Recording", clip(document.title || location.host, 60));
     drawWave();
   }

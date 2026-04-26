@@ -45,12 +45,19 @@
           width: 300px; height: 46px; border-radius: 12px;
           background: rgba(0,0,0,0.78); backdrop-filter: blur(10px);
           color: #fff; display: flex; align-items: center; gap: 10px;
-          padding: 0 12px; font-family: -apple-system, system-ui, sans-serif;
+          padding: 0 10px 0 12px; font-family: -apple-system, system-ui, sans-serif;
         }
         canvas { width: 64px; height: 26px; flex: 0 0 auto; }
         .label { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; gap: 2px; }
         .tag { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .text { font-size: 10px; opacity: 0.62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .stop {
+          flex: 0 0 auto; width: 26px; height: 26px; border: 0; padding: 0;
+          border-radius: 7px; background: rgba(255,255,255,0.14);
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          pointer-events: auto;
+        }
+        .stop-icon { width: 10px; height: 10px; background: #fff; border-radius: 2px; display: block; }
       </style>
       <div class="overlay">
         <canvas></canvas>
@@ -58,6 +65,9 @@
           <span class="tag">button.nav-item</span>
           <span class="text">Discovery v2 (Sonnet, exhaustive) 849 lines</span>
         </div>
+        <button class="stop" aria-label="Stop recording">
+          <span class="stop-icon"></span>
+        </button>
       </div>
     `;
     document.documentElement.appendChild(host);
