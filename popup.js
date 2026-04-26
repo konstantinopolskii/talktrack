@@ -51,25 +51,38 @@ function fmtDuration(ms) {
 }
 
 function buildBriefing(last) {
+  const ext = last.audio?.ext || "webm";
+  const head = `duration: ${fmtDuration(last.durationMs)}, ${last.events} events` +
+    (last.transcript?.ok ? `, ${last.transcript.segments} voice segments` : "");
   const lines = [
     `WalkieTalkie session ${last.id}`,
     `folder: ~/Downloads/${last.folder}`,
-    `duration: ${fmtDuration(last.durationMs)}, ${last.events} events`,
+    head,
     `files:`
   ];
   if (last.audio?.ok) {
-    lines.push(`  audio.webm    microphone capture, opus in webm`);
+    lines.push(`  audio.${ext.padEnd(8)}microphone capture (${ext})`);
   }
-  lines.push(`  log.txt       human-readable timeline of clicks, selections, keys`);
-  lines.push(`  events.jsonl  same events, one JSON object per line`);
-  lines.push(`  session.json  metadata: started, stopped, duration, user agent`);
+  if (last.transcript?.ok) {
+    lines.push(`  timeline.md     voice over events, merged by timestamp`);
+    lines.push(`  transcript.txt  what you said, plain text with timestamps`);
+  }
+  lines.push(`  log.txt         human-readable timeline of clicks, selections, keys`);
+  lines.push(`  events.jsonl    same events, one JSON object per line`);
+  lines.push(`  session.json    metadata: started, stopped, duration, audio, transcript`);
   if (last.audio && last.audio.ok === false) {
     lines.push(``);
     lines.push(`audio: missing (${last.audio.error || "unknown"}). Events only.`);
   }
   lines.push(``);
-  lines.push(`Read log.txt first for the timeline. Match timestamps in events.jsonl`);
-  lines.push(`for full DOM context (selector, bbox, attrs) on any moment.`);
+  if (last.transcript?.ok) {
+    lines.push(`Read timeline.md first — voice and DOM events line up there.`);
+    lines.push(`Match timestamps to events.jsonl for full DOM context (selector,`);
+    lines.push(`bbox, attrs) on any moment.`);
+  } else {
+    lines.push(`Read log.txt first for the timeline. Match timestamps in events.jsonl`);
+    lines.push(`for full DOM context (selector, bbox, attrs) on any moment.`);
+  }
   return lines.join("\n");
 }
 

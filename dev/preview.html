@@ -9,19 +9,20 @@
   <script>
     // Stub chrome.* so popup.js can run outside the extension context.
     // Toggle the constants below to preview different states.
-    const PREVIEW_RECORDING = true;
-    const PREVIEW_AUDIO_OK = false;
+    const PREVIEW_RECORDING = false;
+    const PREVIEW_AUDIO_OK = true;
 
     const audioState = PREVIEW_AUDIO_OK
-      ? { ok: true, error: null, mime: "audio/webm;codecs=opus" }
-      : { ok: false, error: "mic-denied", mime: null };
+      ? { ok: true, ext: "m4a", error: null, mime: "audio/mp4" }
+      : { ok: false, ext: "m4a", error: "mic-denied", mime: null };
 
     const lastSession = {
       id: "20260426-114530",
       folder: "walkietalkie/session-20260426-114530",
       durationMs: 192000,
       events: 47,
-      audio: audioState
+      audio: audioState,
+      transcript: { ok: PREVIEW_AUDIO_OK, segments: 14 }
     };
 
     window.chrome = {
